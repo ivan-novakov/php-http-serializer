@@ -1,0 +1,22 @@
+{
+    "name": "ivan-novakov/http-serializer",
+    
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/videlalvaro/php-amqplib.git"
+        }
+    ],
+    
+    "require": {
+        "monolog/monolog": "1.2.*",
+        "videlalvaro/php-amqplib" : "master-dev",
+        "zendframework/zendframework": "dev-release"
+    },
+    
+    "autoload": {
+        "psr-0": {
+            "HttpSer": "lib"
+        }
+    }
+}
