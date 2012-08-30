@@ -1,6 +1,7 @@
 <?php
 
-use HttpSer\Broker\Broker;
+namespace HttpSer\Broker;
+
 use PhpAmqpLib\Connection\AMQPConnection;
 use PhpAmqpLib\Message\AMQPMessage;
 
@@ -42,10 +43,18 @@ $brokerConfig = new \Zend\Config\Config(array(
             'exclusive' => true, 
             'noWait' => false
         )
+    ), 
+    
+    'handler' => array(
+        'name' => 'Dummy', 
+        'params' => array()
     )
 ));
 
 $broker = new Broker($brokerConfig);
+$handler = new Handler\Dummy($brokerConfig->handler->params);
+
+$broker->setHandler($handler);
 $broker->start();
 
 exit();

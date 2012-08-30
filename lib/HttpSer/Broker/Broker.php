@@ -2,6 +2,7 @@
 
 namespace HttpSer\Broker;
 
+use PhpAmqpLib\Message\AMQPMessage;
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Connection\AMQPConnection;
 
@@ -30,6 +31,13 @@ class Broker
      */
     protected $_channel = NULL;
 
+    /**
+     * Handler object.
+     * 
+     * @var Handler\HandlerInterface
+     */
+    protected $_handler = NULL;
+
 
     /**
      * Constructor.
@@ -42,8 +50,10 @@ class Broker
     }
 
 
-    public function setHandler ()
-    {}
+    public function setHandler (Handler\HandlerInterface $handler)
+    {
+        $this->_handler = $handler;
+    }
 
 
     public function start ()
@@ -58,6 +68,17 @@ class Broker
 
     public function stop ()
     {}
+
+
+    public function consumerCallback (AMQPMessage $msg)
+    {
+        if (! ($this->_handler instanceof Handler\HandlerInterface)) {
+            throw new Exception\MissingHandlerException();
+        }
+        
+        $result = $this->_handler->process($msg->body);
+        _dump($result);
+    }
     
     /*
      * Protected/private
@@ -135,8 +156,9 @@ class Broker
 
     protected function _getCallback ()
     {
-        return function($msg) {
-            _dump($msg);
-        };
+        return array(
+            $this, 
+            'consumerCallback'
+        );
     }
 }
