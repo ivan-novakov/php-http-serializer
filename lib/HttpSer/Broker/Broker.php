@@ -1,11 +1,9 @@
 <?php
 
 namespace HttpSer\Broker;
-
 use \HttpSer\Observer;
+use \HttpSer\Queue;
 use PhpAmqpLib\Message\AMQPMessage;
-use PhpAmqpLib\Channel\AMQPChannel;
-use PhpAmqpLib\Connection\AMQPConnection;
 
 
 class Broker implements Observer\SubjectInterface
@@ -19,16 +17,9 @@ class Broker implements Observer\SubjectInterface
     protected $_config = NULL;
     
     /**
-     * Connection object.
-     * 
-     * @var AMQPConnection
-     */
-    protected $_conn = NULL;
-    
-    /**
      * Channel object.
      * 
-     * @var AMQPChannel
+     * @var Queue\Channel;
      */
     protected $_channel = NULL;
     
@@ -124,7 +115,7 @@ class Broker implements Observer\SubjectInterface
     {
         $this->_debug('Entering loop ...');
         
-        while (count($this->_channel->callbacks)) {
+        while (count($this->_channel->getCallbackCount())) {
             $this->_channel->wait();
         }
     }
@@ -140,7 +131,7 @@ class Broker implements Observer\SubjectInterface
             'correlation_id' => $requestMsg->get('correlation_id')
         ));
         
-        $this->_channel->basic_publish($responseMsg, $this->_config->bindings->exchange->name, $requestMsg->get('reply_to'));
+        $this->_channel->basicPublish($responseMsg, $this->_config->bindings->exchange->name, $requestMsg->get('reply_to'));
     }
 
 
@@ -150,9 +141,7 @@ class Broker implements Observer\SubjectInterface
     protected function _initConnection ()
     {
         $config = $this->_config->connection;
-        
-        $this->_conn = new AMQPConnection($config->host, $config->port, $config->user, $config->password, $config->vhost);
-        $this->_channel = $this->_conn->channel();
+        $this->_channel = new Queue\Channel($config);
         
         $this->_debug(sprintf("Initialized connection to %s:%s/%s under user '%s'", $config->host, $config->port, $config->vhost, $config->user));
     }
@@ -163,45 +152,22 @@ class Broker implements Observer\SubjectInterface
      */
     protected function _initBindings ()
     {
-        $exchangeName = $this->_declareExchange();
-        $queueName = $this->_declareQueue();
+        $exchangeConfig = $this->_config->bindings->exchange;
+        $this->_channel->exchangeDeclare($exchangeConfig->name, $exchangeConfig->options);
         
-        $this->_channel->queue_bind($queueName, $exchangeName);
+        $queueConfig = $this->_config->bindings->queue;
+        $this->_channel->queueDeclare($queueConfig->name, $queueConfig->options);
         
-        $this->_debug(sprintf("Queue '%s' bound to exchange '%s'", $queueName, $exchangeName));
+        $this->_channel->queueBind($queueConfig->name, $exchangeConfig->name);
+        
+        $this->_debug(sprintf("Queue '%s' bound to exchange '%s'", $queueConfig->name, $exchangeConfig->name));
     }
 
 
     protected function _initConsumer ()
     {
         $config = $this->_config->bindings->consumer;
-        $this->_channel->basic_consume($this->_getRequestQueueName(), $config->tag, $config->noLocal, $config->noAck, $config->exclusive, $config->noWait, $this->_getCallback());
-    }
-
-
-    /**
-     * Initializes the exchange.
-     */
-    protected function _declareExchange ()
-    {
-        $config = $this->_config->bindings->exchange;
-        $opts = $config->options;
-        $this->_channel->exchange_declare($config->name, $opts->type, $opts->passive, $opts->durable, $opts->autoDelete);
-        
-        return $config->name;
-    }
-
-
-    /**
-     * Initializes the queue.
-     */
-    protected function _declareQueue ()
-    {
-        $config = $this->_config->bindings->queue;
-        $opts = $config->options;
-        $this->_channel->queue_declare($config->name, $opts->passive, $opts->durable, $opts->exclusive, $opts->autoDelete);
-        
-        return $config->name;
+        $this->_channel->basicConsume($this->_getRequestQueueName(), $config, $this->_getCallback());
     }
 
 
