@@ -1,63 +1,73 @@
 <?php
 
 namespace HttpSer\Broker;
-
+use HttpSer\Log\Log;
 use PhpAmqpLib\Connection\AMQPConnection;
 use PhpAmqpLib\Message\AMQPMessage;
-
 require 'common.php';
 
-$brokerConfig = new \Zend\Config\Config(array(
-    
-    'connection' => array(
-        'host' => 'localhost', 
-        'port' => 5672, 
-        'user' => 'mcu', 
-        'password' => 'mcuapi', 
-        'vhost' => '/mcu'
-    ), 
-    
-    'bindings' => array(
-        'exchange' => array(
-            'name' => 'mcu-http-serializer', 
-            'options' => array(
-                'type' => 'direct', 
-                'passive' => false, 
-                'durable' => true, 
-                'autoDelete' => false
-            )
+$globalConfig = new \Zend\Config\Config(array(
+    'broker' => array(
+        'connection' => array(
+            'host' => 'localhost', 
+            'port' => 5672, 
+            'user' => 'mcu', 
+            'password' => 'mcuapi', 
+            'vhost' => '/mcu'
         ), 
-        'queue' => array(
-            'name' => 'rpc-request', 
-            'options' => array(
-                'passive' => false, 
-                'durable' => true, 
-                'exclusive' => false, 
-                'autoDelete' => true
+        
+        'bindings' => array(
+            'exchange' => array(
+                'name' => 'mcu-http-serializer', 
+                'options' => array(
+                    'type' => 'direct', 
+                    'passive' => false, 
+                    'durable' => true, 
+                    'autoDelete' => false
+                )
+            ), 
+            'queue' => array(
+                'name' => 'rpc-request', 
+                'options' => array(
+                    'passive' => false, 
+                    'durable' => true, 
+                    'exclusive' => false, 
+                    'autoDelete' => true
+                )
+            ), 
+            'consumer' => array(
+                'tag' => 'rpc-broker', 
+                'noLocal' => false, 
+                'noAck' => true, 
+                'exclusive' => true, 
+                'noWait' => false
             )
-        ), 
-        'consumer' => array(
-            'tag' => 'rpc-broker', 
-            'noLocal' => false, 
-            'noAck' => true, 
-            'exclusive' => true, 
-            'noWait' => false
         )
     ), 
     
     'handler' => array(
-        'name' => 'Dummy', 
+        'className' => '\HttpSer\Broker\Handler\Dummy', 
         'params' => array()
     )
 ));
 
-$broker = new Broker($brokerConfig);
-$handler = new Handler\Dummy($brokerConfig->handler->params);
+$broker = new Broker($globalConfig->broker);
 
+$logger = new \Zend\Log\Logger();
+$logger->addWriter('stream', null, array(
+    'stream' => 'php://output'
+));
+$log = new Log($logger);
+$broker->addObserver($log);
+
+$handlerConfig = $globalConfig->handler;
+$handler = HandlerFactory::factory($handlerConfig->className, $handlerConfig->params);
 $broker->setHandler($handler);
+
 $broker->start();
 
 exit();
+
 $serverConfig = $config->queueServer;
 $reqConfig = $config->rpc->request;
 $respConfig = $config->rpc->response;
@@ -76,7 +86,7 @@ $callback = function  ($msg)
     
     $ch = $msg->delivery_info['channel'];
     
-    //_dump($msg);
+    // _dump($msg);
     _dump($msg->body);
     $msgBody = "RESPONSE: " . $msg->body;
     

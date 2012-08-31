@@ -2,41 +2,49 @@
 
 namespace HttpSer\Broker;
 
+use \HttpSer\Observer;
 use PhpAmqpLib\Message\AMQPMessage;
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Connection\AMQPConnection;
 
 
-class Broker
+class Broker implements Observer\SubjectInterface
 {
-
+    
     /**
      * Configuration object.
      * 
      * @var \Zend\Config\Config
      */
     protected $_config = NULL;
-
+    
     /**
      * Connection object.
      * 
      * @var AMQPConnection
      */
     protected $_conn = NULL;
-
+    
     /**
      * Channel object.
      * 
      * @var AMQPChannel
      */
     protected $_channel = NULL;
-
+    
     /**
      * Handler object.
      * 
      * @var Handler\HandlerInterface
      */
     protected $_handler = NULL;
+    
+    /**
+     * An array of observers attached to the object.
+     * 
+     * @var array
+     */
+    protected $_observers = array();
 
 
     /**
@@ -58,6 +66,8 @@ class Broker
 
     public function start ()
     {
+        $this->_debug('Starting broker ...');
+        
         $this->_initConnection();
         $this->_initBindings();
         $this->_initConsumer();
@@ -76,8 +86,35 @@ class Broker
             throw new Exception\MissingHandlerException();
         }
         
+        $this->_debug(sprintf("Received message:\n%s", $this->_formatPayloadForDebug($msg->body)));
+        
         $result = $this->_handler->process($msg->body);
-        _dump($result);
+        
+        $this->_sendResponse($result, $msg);
+    }
+    
+    /*
+     * Observer\SubjectInterface methods
+     */
+    public function addObserver (Observer\ObserverInterface $observer)
+    {
+        $this->_observers[$observer->getIdent()] = $observer;
+    }
+
+
+    public function removeObserver (Observer\ObserverInterface $observer)
+    {
+        if (isset($this->_observers[$observer->getIdent()])) {
+            unset($this->_observers[$observer->getIdent()]);
+        }
+    }
+
+
+    public function notifyObservers ($message)
+    {
+        foreach ($this->_observers as $observer) {
+            $observer->update($message);
+        }
     }
     
     /*
@@ -85,9 +122,25 @@ class Broker
      */
     protected function _loop ()
     {
+        $this->_debug('Entering loop ...');
+        
         while (count($this->_channel->callbacks)) {
             $this->_channel->wait();
         }
+    }
+
+
+    protected function _sendResponse ($response, AMQPMessage $requestMsg)
+    {
+        $this->_debug(sprintf("Sending response:\n%s", $this->_formatPayloadForDebug($response)));
+        
+        $responseMsg = new AMQPMessage($response, array(
+            'content_type' => 'text/plain', 
+            'delivery_mode' => 2, 
+            'correlation_id' => $requestMsg->get('correlation_id')
+        ));
+        
+        $this->_channel->basic_publish($responseMsg, $this->_config->bindings->exchange->name, $requestMsg->get('reply_to'));
     }
 
 
@@ -100,6 +153,8 @@ class Broker
         
         $this->_conn = new AMQPConnection($config->host, $config->port, $config->user, $config->password, $config->vhost);
         $this->_channel = $this->_conn->channel();
+        
+        $this->_debug(sprintf("Initialized connection to %s:%s/%s under user '%s'", $config->host, $config->port, $config->vhost, $config->user));
     }
 
 
@@ -112,6 +167,8 @@ class Broker
         $queueName = $this->_declareQueue();
         
         $this->_channel->queue_bind($queueName, $exchangeName);
+        
+        $this->_debug(sprintf("Queue '%s' bound to exchange '%s'", $queueName, $exchangeName));
     }
 
 
@@ -160,5 +217,17 @@ class Broker
             $this, 
             'consumerCallback'
         );
+    }
+
+
+    protected function _debug ($message)
+    {
+        $this->notifyObservers($message);
+    }
+
+
+    protected function _formatPayloadForDebug ($text)
+    {
+        return sprintf("------\n%s\n-----", $text);
     }
 }
