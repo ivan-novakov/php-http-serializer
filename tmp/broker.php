@@ -46,8 +46,10 @@ $globalConfig = new \Zend\Config\Config(array(
     ), 
     
     'handler' => array(
-        'className' => '\HttpSer\Broker\Handler\Dummy', 
-        'params' => array()
+        'className' => '\HttpSer\Broker\Handler\HttpRelay', 
+        'params' => array(
+            'targetUrl' => 'http://hroch.cesnet.cz/test/target.php'
+        )
     )
 ));
 

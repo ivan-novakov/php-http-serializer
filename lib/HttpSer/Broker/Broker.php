@@ -80,7 +80,7 @@ class Broker implements Observer\SubjectInterface
         $this->_debug(sprintf("Received message:\n%s", $this->_formatPayloadForDebug($msg->body)));
         
         $result = $this->_handler->process($msg->body);
-        
+ 
         $this->_sendResponse($result, $msg);
     }
     
