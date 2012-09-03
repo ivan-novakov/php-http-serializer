@@ -5,7 +5,7 @@ use HttpSer\Observer;
 use HttpSer\Queue;
 
 
-class Agent implements Observer\SubjectInterface
+class Agent implements \Zend\Log\LoggerAwareInterface
 {
 
     /**
@@ -112,10 +112,12 @@ class Agent implements Observer\SubjectInterface
      */
     public function sendMessage ($message, $returnRawResponse = false)
     {
+        $correlationId = $this->_generateCorrelationId();
+        
         $msg = new AMQPMessage($message, array(
             'content_type' => 'text/plain', 
             'delivery_mode' => 2, 
-            'correlation_id' => $this->_generateCorrelationId(), 
+            'correlation_id' => $correlationId, 
             'reply_to' => $this->_getResponseQueueName()
         ));
         
@@ -130,7 +132,7 @@ class Agent implements Observer\SubjectInterface
             }
             
             if ($this->_isResponseTimeout()) {
-                throw new Exception\ResponseTimeoutException();
+                throw new Exception\ResponseTimeoutException($this->_getResponseTimeout());
             }
             
             $this->_channel->waitNonBlocking();
@@ -172,17 +174,9 @@ class Agent implements Observer\SubjectInterface
     }
     
     /*
-     * Observer\SibjectInterface methods
+     * \Zend\Log\LoggerAwareInterface
      */
-    public function addObserver (Observer\ObserverInterface $observer)
-    {}
-
-
-    public function removeObserver (Observer\ObserverInterface $observer)
-    {}
-
-
-    public function notifyObservers ($message)
+    public function setLogger (\Zend\Log\LoggerInterface $logger)
     {}
     
     /*
@@ -214,7 +208,13 @@ class Agent implements Observer\SubjectInterface
 
     protected function _isResponseTimeout ()
     {
-        return ((time() - $this->_startWaitTime) > $this->_config->get('responseTimeout', 10));
+        return ((time() - $this->_startWaitTime) > $this->_getResponseTimeout());
+    }
+
+
+    protected function _getResponseTimeout ()
+    {
+        return $this->_config->get('responseTimeout', 10);
     }
 
 
