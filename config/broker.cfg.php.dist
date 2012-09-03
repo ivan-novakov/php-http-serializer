@@ -5,14 +5,14 @@ return array(
         'connection' => array(
             'host' => 'localhost', 
             'port' => 5672, 
-            'user' => 'mcu', 
-            'password' => 'mcuapi', 
-            'vhost' => '/mcu'
+            'user' => 'user', 
+            'password' => 'passwd', 
+            'vhost' => '/myvhost'
         ), 
         
         'bindings' => array(
             'exchange' => array(
-                'name' => 'mcu-http-serializer', 
+                'name' => 'http-serializer', 
                 'options' => array(
                     'type' => 'direct', 
                     'passive' => false, 
@@ -42,7 +42,7 @@ return array(
     'handler' => array(
         'className' => '\HttpSer\Broker\Handler\HttpsRelay', 
         'params' => array(
-            'targetUrl' => 'https://hroch.cesnet.cz/test/target.php', 
+            'targetUrl' => 'https://example.org/url/target', 
             
             'client' => array(
                 
@@ -60,12 +60,24 @@ return array(
                     'streamContext' => array(
                         'ssl' => array(
                             'verify_peer' => true, 
-                            'cafile' => '/etc/ssl/certs/tcs-ca-bundle.pem', 
+                            'cafile' => '/etc/ssl/certs/ca-bundle.pem', 
                             'allow_self_signed' => false
                         )
                     )
                 )
+            ), 
+            
+            'serializer' => array(
+                'adapter' => 'PhpSerialize', 
+                'options' => array()
             )
+        )
+    ),
+    
+    'logger' => array(
+        'writer' => 'stream',
+        'options' => array(
+            'stream' => '/data/var/log/http-serializer/broker.log'
         )
     )
 );

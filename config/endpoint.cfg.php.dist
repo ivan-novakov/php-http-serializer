@@ -4,19 +4,19 @@ return array(
     
     'agent' => array(
         
-        'responseTimeout' => 10,
+        'responseTimeout' => 10, 
         
         'connection' => array(
             'host' => 'localhost', 
             'port' => 5672, 
-            'user' => 'mcu', 
-            'password' => 'mcuapi', 
-            'vhost' => '/mcu'
+            'user' => 'user', 
+            'password' => 'passwd', 
+            'vhost' => '/myvhost'
         ), 
         
         'bindings' => array(
             'exchange' => array(
-                'name' => 'mcu-http-serializer'
+                'name' => 'http-serializer'
             ), 
             'queue' => array(
                 'namePrefix' => 'rpc-response-', 
@@ -34,6 +34,18 @@ return array(
                 'exclusive' => false, 
                 'noWait' => true
             )
+        )
+    ), 
+    
+    'serializer' => array(
+        'adapter' => 'PhpSerialize', 
+        'options' => array()
+    ), 
+    
+    'logger' => array(
+        'writer' => 'stream', 
+        'options' => array(
+            'stream' => '/data/var/log/http-serializer/frontend.log'
         )
     )
 );

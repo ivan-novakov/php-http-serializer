@@ -12,12 +12,33 @@ class HttpsRelay extends AbstractHandler
      */
     protected $_client = NULL;
 
+    /**
+     * Serializer object.
+     * 
+     * @var \Zend\Serializer\Adapter\AdapterInterface
+     */
+    protected $_serializer = NULL;
+
+
+    public function __construct (\Zend\Config\Config $config)
+    {
+        parent::__construct($config);
+        
+        $serializerConfig = $this->_config->serializer;
+        $this->_serializer = \Zend\Serializer\Serializer::factory($serializerConfig->adapter, $serializerConfig->options);
+    }
+
 
     public function process ($data)
     {
-        $request = unserialize($data);
+        try {
+            $request = $this->_unserializeRequest($data);
+        } catch (\Exception $e) {
+            throw new Exception\UnserializeException();
+        }
+        
         if (FALSE === $request || ! ($request instanceof \Zend\Http\Request)) {
-            // error
+            throw new Exception\InvalidRequestException();
         }
         
         $request->setUri($this->_config->targetUrl);
@@ -27,10 +48,16 @@ class HttpsRelay extends AbstractHandler
         ));
         
         $client = $this->getClient();
- 
+        
         $response = $client->send($request);
-
-        return serialize($response);
+        
+        try {
+            $responseData = $this->_serializeResponse($response);
+        } catch (\Exception $e) {
+            throw new Exception\SerializeException();
+        }
+        
+        return $responseData;
     }
 
 
@@ -69,5 +96,32 @@ class HttpsRelay extends AbstractHandler
         }
         
         return $this->_client;
+    }
+    
+    /*
+     * Protected/private
+     */
+    
+    /**
+     * Returns the unserialized request data.
+     * 
+     * @param string $responseData
+     * @return \Zend\Http\Response
+     */
+    protected function _unserializeRequest ($requestData)
+    {
+        return $this->_serializer->unserialize($requestData);
+    }
+
+
+    /**
+     * Returns the serialized response data.
+     * 
+     * @param \Zend\Http\Response $response
+     * @return string
+     */
+    protected function _serializeResponse (\Zend\Http\Response $response)
+    {
+        return $this->_serializer->serialize($response);
     }
 }

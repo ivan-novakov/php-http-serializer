@@ -71,7 +71,9 @@ class Frontend
         
         try {
             $this->_startTimer('connect');
+            
             $agent->connect();
+            
             $this->_stopTimer('connect');
             $this->_log(sprintf("Connected to queue [%f s]", $this->_getTimerTime('connect')));
         } catch (\Exception $e) {
@@ -80,7 +82,9 @@ class Frontend
         
         try {
             $this->_startTimer('serialize');
+            
             $msgBody = $this->_serializeRequest($request);
+            
             $this->_stopTimer('serialize');
             $this->_log(sprintf("Serialized request [%f s]", $this->_getTimerTime('serialize')));
         } catch (\Exception $e) {
@@ -89,7 +93,9 @@ class Frontend
         
         try {
             $this->_startTimer('request');
+            
             $responseData = $agent->sendMessage($msgBody);
+            
             $this->_stopTimer('request');
             $this->_log(sprintf("Request dispatched [%f s]", $this->_getTimerTime('request')));
         } catch (\Exception $e) {
@@ -98,7 +104,9 @@ class Frontend
         
         try {
             $this->_startTimer('unserialize');
+            
             $response = $this->_unserializeResponse($responseData);
+            
             $this->_stopTimer('unserialize');
             $this->_log(sprintf("Response unserialized [%f s]", $this->_getTimerTime('unserialize')));
         } catch (\Exception $e) {

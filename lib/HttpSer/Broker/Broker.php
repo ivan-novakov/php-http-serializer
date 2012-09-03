@@ -1,5 +1,4 @@
 <?php
-
 namespace HttpSer\Broker;
 use \HttpSer\Observer;
 use \HttpSer\Queue;
@@ -8,28 +7,28 @@ use PhpAmqpLib\Message\AMQPMessage;
 
 class Broker implements Observer\SubjectInterface
 {
-    
+
     /**
      * Configuration object.
      * 
      * @var \Zend\Config\Config
      */
     protected $_config = NULL;
-    
+
     /**
      * Channel object.
      * 
      * @var Queue\Channel;
      */
     protected $_channel = NULL;
-    
+
     /**
      * Handler object.
      * 
      * @var Handler\HandlerInterface
      */
     protected $_handler = NULL;
-    
+
     /**
      * An array of observers attached to the object.
      * 
@@ -78,9 +77,17 @@ class Broker implements Observer\SubjectInterface
         }
         
         //$this->_debug(sprintf("Received message:\n%s", $this->_formatPayloadForDebug($msg->body)));
+        $this->_debug(sprintf("Received message [%s]", $msg->get('correlation_id')));
         
-        $result = $this->_handler->process($msg->body);
- 
+        try {
+            $result = $this->_handler->process($msg->body);
+        } catch (\Exception $e) {
+            // handle error
+            // send error response
+            $this->_debug(sprintf("Handler process error: [%s] %s", get_class($e), $e->getMessage()));
+            $result = 'error';
+        }
+        
         $this->_sendResponse($result, $msg);
     }
     
@@ -124,7 +131,6 @@ class Broker implements Observer\SubjectInterface
     protected function _sendResponse ($response, AMQPMessage $requestMsg)
     {
         //$this->_debug(sprintf("Sending response:\n%s", $this->_formatPayloadForDebug($response)));
-        
         $responseMsg = new AMQPMessage($response, array(
             'content_type' => 'text/plain', 
             'delivery_mode' => 2, 
@@ -132,6 +138,8 @@ class Broker implements Observer\SubjectInterface
         ));
         
         $this->_channel->basicPublish($responseMsg, $this->_config->bindings->exchange->name, $requestMsg->get('reply_to'));
+        
+        $this->_debug(sprintf("Sent response [%s]", $requestMsg->get('correlation_id')));
     }
 
 
