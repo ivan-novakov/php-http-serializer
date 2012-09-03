@@ -3,43 +3,11 @@
 use Zend\Http\PhpEnvironment;
 use HttpSer\Agent;
 
-require '../bootstrap.php';
+define('HTTPSER_ENDPOINT_DIR', dirname(__FILE__) . '/');
 
-$globalConfig = new \Zend\Config\Config(array(
-    
-    'agent' => array(
-        
-        'connection' => array(
-            'host' => 'localhost', 
-            'port' => 5672, 
-            'user' => 'mcu', 
-            'password' => 'mcuapi', 
-            'vhost' => '/mcu'
-        ), 
-        
-        'bindings' => array(
-            'exchange' => array(
-                'name' => 'mcu-http-serializer'
-            ), 
-            'queue' => array(
-                'namePrefix' => 'rpc-response-', 
-                'options' => array(
-                    'passive' => false, 
-                    'durable' => false, 
-                    'exclusive' => true, 
-                    'autoDelete' => true
-                )
-            ), 
-            'consumer' => array(
-                'tag' => 'rpc-agent', 
-                'noLocal' => false, 
-                'noAck' => true, 
-                'exclusive' => false, 
-                'noWait' => false
-            )
-        )
-    )
-));
+require HTTPSER_ENDPOINT_DIR . '../bootstrap.php';
+
+$globalConfig = new \Zend\Config\Config(require HTTPSER_DIR . 'config/endpoint.cfg.php');
 
 $request = new PhpEnvironment\Request();
 
@@ -47,8 +15,28 @@ $agent = new Agent\Agent($globalConfig->agent);
 $agent->connect();
 
 $msgBody = serialize($request);
-$responseData = $agent->sendMessage($msgBody);
+
+try {
+    $responseData = $agent->sendMessage($msgBody);
+} catch (Exception $e) {
+    // handle error
+    _dump(sprintf("[%s] %s", get_class($e), $e->getMessage()));
+    exit();
+}
+
 $response = unserialize($responseData);
-//$response = new Zend\Http\Response;
+if (false === $response) {
+    // handle error
+    _dump('unserialize error');
+    exit();
+}
+
+//$response = new \Zend\Http\Response();
 header($response->renderStatusLine());
-echo $response->getBody();
+$headers = $response->getHeaders()
+    ->toArray();
+foreach ($headers as $name => $value) {
+    //_dump("$name: $value");
+    header("$name: $value");
+}
+echo $response->getContent();

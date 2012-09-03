@@ -1,5 +1,4 @@
 <?php
-
 namespace HttpSer\Broker\Handler;
 
 
@@ -23,12 +22,14 @@ class HttpsRelay extends AbstractHandler
         
         $request->setUri($this->_config->targetUrl);
         $request->getHeaders()
-            ->addHeaderLine('Connection: keep-alive');
+            ->addHeaders(array(
+            'Connection' => 'keep-alive'
+        ));
         
         $client = $this->getClient();
-        
+ 
         $response = $client->send($request);
-        
+
         return serialize($response);
     }
 

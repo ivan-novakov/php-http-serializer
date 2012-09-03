@@ -1,5 +1,4 @@
 <?php
-
 namespace HttpSer\Queue;
 use PhpAmqpLib\Message\AMQPMessage;
 use PhpAmqpLib\Channel\AMQPChannel;
@@ -8,14 +7,14 @@ use PhpAmqpLib\Connection\AMQPConnection;
 
 class Channel
 {
-    
+
     /**
      * Connection object.
      *
      * @var AMQPConnection
      */
     protected $_conn = NULL;
-    
+
     /**
      * Channel object.
      *
@@ -80,8 +79,31 @@ class Channel
     }
 
 
+    /**
+     * Waiting for incoming data.
+     */
     public function wait ()
     {
         $this->_channel->wait();
+    }
+
+
+    /**
+     * Non-blocking waiting for incoming data.
+     */
+    public function waitNonBlocking ()
+    {
+        $read = array(
+            $this->_conn->getSocket()
+        );
+        
+        $write = null;
+        $except = null;
+        
+        if (false === ($numChangedCtreams = stream_select($read, $write, $except, 5))) {
+            throw new Exception\StreamSelectException();
+        } elseif ($numChangedCtreams > 0) {
+            $this->_channel->wait();
+        }
     }
 }

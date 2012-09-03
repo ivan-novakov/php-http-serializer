@@ -1,2 +1,4 @@
 vendor
 composer.lock
+config/broker.cfg.php
+config/endpoint.cfg.php

@@ -77,7 +77,7 @@ class Broker implements Observer\SubjectInterface
             throw new Exception\MissingHandlerException();
         }
         
-        $this->_debug(sprintf("Received message:\n%s", $this->_formatPayloadForDebug($msg->body)));
+        //$this->_debug(sprintf("Received message:\n%s", $this->_formatPayloadForDebug($msg->body)));
         
         $result = $this->_handler->process($msg->body);
  
@@ -123,7 +123,7 @@ class Broker implements Observer\SubjectInterface
 
     protected function _sendResponse ($response, AMQPMessage $requestMsg)
     {
-        $this->_debug(sprintf("Sending response:\n%s", $this->_formatPayloadForDebug($response)));
+        //$this->_debug(sprintf("Sending response:\n%s", $this->_formatPayloadForDebug($response)));
         
         $responseMsg = new AMQPMessage($response, array(
             'content_type' => 'text/plain', 
