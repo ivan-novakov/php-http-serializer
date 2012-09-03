@@ -65,7 +65,11 @@ class Frontend
     {
         $this->_timer->startTimer('total');
         
+        /* Initialize the current request. */
         $request = new \Zend\Http\PhpEnvironment\Request();
+        /* Load the raw POST data if present. */
+        $request->getContent();
+        
         $this->_log(sprintf("Processing '%s' request...", $request->getMethod()));
         
         $agent = new Agent\Agent($this->_config->agent);

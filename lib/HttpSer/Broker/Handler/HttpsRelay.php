@@ -50,11 +50,11 @@ class HttpsRelay extends AbstractHandler
         ));
         
         $client = $this->getClient();
-        
+
         $this->_timer->startTimer('request');
         $response = $client->send($request);
         $this->_timer->stopTimer('request');
-        
+
         try {
             $responseData = $this->_serializeResponse($response);
         } catch (\Exception $e) {
