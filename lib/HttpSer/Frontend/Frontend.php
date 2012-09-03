@@ -1,6 +1,7 @@
 <?php
 namespace HttpSer\Frontend;
 use HttpSer\Agent;
+use HttpSer\Util;
 
 
 class Frontend
@@ -53,6 +54,7 @@ class Frontend
         $this->_config = new \Zend\Config\Config($config);
         $this->_logger = $this->_initLogger();
         $this->_serializer = $this->_initSerializer();
+        $this->_timer = new Util\Timer();
     }
 
 
@@ -61,7 +63,7 @@ class Frontend
      */
     public function run ()
     {
-        $this->_startTimer('total');
+        $this->_timer->startTimer('total');
         
         $request = new \Zend\Http\PhpEnvironment\Request();
         $this->_log(sprintf("Processing '%s' request...", $request->getMethod()));
@@ -70,45 +72,45 @@ class Frontend
         $agent->setLogger($this->_logger);
         
         try {
-            $this->_startTimer('connect');
+            $this->_timer->startTimer('connect');
             
             $agent->connect();
             
-            $this->_stopTimer('connect');
-            $this->_log(sprintf("Connected to queue [%f s]", $this->_getTimerTime('connect')));
+            $this->_timer->stopTimer('connect');
+            $this->_log(sprintf("Connected to queue [%f s]", $this->_timer->getTimerTime('connect')));
         } catch (\Exception $e) {
             $this->_handleException($e, 'Connecting to queue');
         }
         
         try {
-            $this->_startTimer('serialize');
+            $this->_timer->startTimer('serialize');
             
             $msgBody = $this->_serializeRequest($request);
             
-            $this->_stopTimer('serialize');
-            $this->_log(sprintf("Serialized request [%f s]", $this->_getTimerTime('serialize')));
+            $this->_timer->stopTimer('serialize');
+            $this->_log(sprintf("Serialized request [%f s]", $this->_timer->getTimerTime('serialize')));
         } catch (\Exception $e) {
             $this->_handleException($e, 'Serializing request');
         }
         
         try {
-            $this->_startTimer('request');
+            $this->_timer->startTimer('request');
             
             $responseData = $agent->sendMessage($msgBody);
             
-            $this->_stopTimer('request');
-            $this->_log(sprintf("Request dispatched [%f s]", $this->_getTimerTime('request')));
+            $this->_timer->stopTimer('request');
+            $this->_log(sprintf("Request dispatched [%f s]", $this->_timer->getTimerTime('request')));
         } catch (\Exception $e) {
             $this->_handleException($e, 'Send message');
         }
         
         try {
-            $this->_startTimer('unserialize');
+            $this->_timer->startTimer('unserialize');
             
             $response = $this->_unserializeResponse($responseData);
             
-            $this->_stopTimer('unserialize');
-            $this->_log(sprintf("Response unserialized [%f s]", $this->_getTimerTime('unserialize')));
+            $this->_timer->stopTimer('unserialize');
+            $this->_log(sprintf("Response unserialized [%f s]", $this->_timer->getTimerTime('unserialize')));
         } catch (\Exception $e) {
             $this->_handleException($e, 'Unserializing response');
         }
@@ -216,7 +218,12 @@ class Frontend
      */
     protected function _unserializeResponse ($responseData)
     {
-        return $this->_serializer->unserialize($responseData);
+        $response = $this->_serializer->unserialize($responseData);
+        if (! ($response instanceof \Zend\Http\Response)) {
+            throw new Exception\InvalidResponseException();
+        }
+        
+        return $response;
     }
 
 
@@ -226,39 +233,10 @@ class Frontend
     }
 
 
-    protected function _startTimer ($label)
-    {
-        $this->_timers[$label] = array(
-            'start' => microtime(true)
-        );
-    }
-
-
-    protected function _stopTimer ($label)
-    {
-        if (! isset($this->_timers[$label]) || ! isset($this->_timers[$label]['start'])) {
-            return;
-        }
-        
-        $this->_timers[$label]['stop'] = microtime(true);
-        $this->_timers[$label]['time'] = $this->_timers[$label]['stop'] - $this->_timers[$label]['start'];
-    }
-
-
-    protected function _getTimerTime ($label)
-    {
-        if (! isset($this->_timers[$label]) || ! isset($this->_timers[$label]['time'])) {
-            return false;
-        }
-        
-        return $this->_timers[$label]['time'];
-    }
-
-
     protected function _exit ()
     {
-        $this->_stopTimer('total');
-        $this->_log(sprintf("Complete [%f s]", $this->_getTimerTime('total')));
+        $this->_timer->stopTimer('total');
+        $this->_log(sprintf("Complete [%f s]", $this->_timer->getTimerTime('total')));
         exit();
     }
 }

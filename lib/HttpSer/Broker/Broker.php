@@ -1,7 +1,8 @@
 <?php
 namespace HttpSer\Broker;
-use \HttpSer\Observer;
-use \HttpSer\Queue;
+use HttpSer\Observer;
+use HttpSer\Queue;
+use HttpSer\Util;
 use PhpAmqpLib\Message\AMQPMessage;
 
 
@@ -45,6 +46,7 @@ class Broker implements Observer\SubjectInterface
     public function __construct (\Zend\Config\Config $config)
     {
         $this->_config = $config;
+        $this->_timer = new Util\Timer();
     }
 
 
@@ -80,7 +82,12 @@ class Broker implements Observer\SubjectInterface
         $this->_debug(sprintf("Received message [%s]", $msg->get('correlation_id')));
         
         try {
+            $this->_timer->startTimer('process');
+            
             $result = $this->_handler->process($msg->body);
+            
+            $this->_timer->stopTimer('process');
+            $this->_debug(sprintf("Message processed by handler [%f s]", $this->_timer->getTimerTime('process')));
         } catch (\Exception $e) {
             // handle error
             // send error response

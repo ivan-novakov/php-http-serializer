@@ -1,5 +1,6 @@
 <?php
 namespace HttpSer\Broker\Handler;
+use HttpSer\Util;
 
 
 class HttpsRelay extends AbstractHandler
@@ -26,6 +27,7 @@ class HttpsRelay extends AbstractHandler
         
         $serializerConfig = $this->_config->serializer;
         $this->_serializer = \Zend\Serializer\Serializer::factory($serializerConfig->adapter, $serializerConfig->options);
+        $this->_timer = new Util\Timer();
     }
 
 
@@ -49,7 +51,9 @@ class HttpsRelay extends AbstractHandler
         
         $client = $this->getClient();
         
+        $this->_timer->startTimer('request');
         $response = $client->send($request);
+        $this->_timer->stopTimer('request');
         
         try {
             $responseData = $this->_serializeResponse($response);
@@ -94,7 +98,7 @@ class HttpsRelay extends AbstractHandler
             
             $this->setClient($client);
         }
-        
+        //_dump(stream_context_get_params($this->_client->getAdapter()->getStreamContext()));
         return $this->_client;
     }
     
